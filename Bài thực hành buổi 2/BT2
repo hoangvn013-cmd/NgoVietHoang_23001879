@@ -1,0 +1,249 @@
+<?php
+
+class Movie {
+    public $id;
+    public $title;
+    public $price;
+    public $totalSeats;
+    public $availableSeats;
+
+    // Constructor
+    public function __construct($id, $title, $price, $totalSeats) {
+        $this->id = $id;
+        $this->title = $title;
+        $this->price = $price;
+        $this->totalSeats = $totalSeats;
+        $this->availableSeats = $totalSeats;
+    }
+
+    // Đặt vé
+    public function bookTicket($quantity) {
+        if ($quantity <= 0) {
+            throw new Exception("Số lượng vé đặt phải lớn hơn 0.");
+        }
+
+        if ($quantity > $this->availableSeats) {
+            throw new Exception("Không đủ ghế để đặt vé.");
+        }
+
+        $this->availableSeats -= $quantity;
+
+        echo "Đặt thành công $quantity vé cho phim "
+            . $this->title . ".\n";
+    }
+
+    // Hủy vé
+    public function cancelTicket($quantity) {
+        if ($quantity <= 0) {
+            throw new Exception("Số lượng vé hủy phải lớn hơn 0.");
+        }
+
+        if ($quantity > $this->getSoldSeats()) {
+            throw new Exception("Số vé hủy vượt quá số vé đã bán.");
+        }
+
+        $this->availableSeats += $quantity;
+
+        echo "Hủy thành công $quantity vé của phim "
+            . $this->title . ".\n";
+    }
+
+    // Số vé đã bán
+    public function getSoldSeats() {
+        return $this->totalSeats - $this->availableSeats;
+    }
+
+    // Doanh thu
+    public function getRevenue() {
+        return $this->getSoldSeats() * $this->price;
+    }
+
+    // Hiển thị thông tin
+    public function displayInfo() {
+        echo "-----------------------------\n";
+        echo "Mã phim: " . $this->id . "\n";
+        echo "Tên phim: " . $this->title . "\n";
+        echo "Giá vé: " . number_format($this->price) . " VNĐ\n";
+        echo "Tổng số ghế: " . $this->totalSeats . "\n";
+        echo "Ghế còn lại: " . $this->availableSeats . "\n";
+        echo "Vé đã bán: " . $this->getSoldSeats() . "\n";
+        echo "Doanh thu: "
+            . number_format($this->getRevenue())
+            . " VNĐ\n";
+    }
+}
+
+
+
+// Tìm phim theo ID
+function findMovieById($movies, $id) {
+
+    foreach ($movies as $movie) {
+        if ($movie->id == $id) {
+            return $movie;
+        }
+    }
+
+    return null;
+}
+
+
+// Tính tổng doanh thu
+function getTotalRevenue($movies) {
+
+    $totalRevenue = 0;
+
+    foreach ($movies as $movie) {
+        $totalRevenue += $movie->getRevenue();
+    }
+
+    return $totalRevenue;
+}
+
+
+// Tìm phim bán được nhiều vé nhất
+function getBestSellingMovie($movies) {
+
+    if (empty($movies)) {
+        return null;
+    }
+
+    $bestMovie = $movies[0];
+
+    foreach ($movies as $movie) {
+        if ($movie->getSoldSeats() > $bestMovie->getSoldSeats()) {
+            $bestMovie = $movie;
+        }
+    }
+
+    return $bestMovie;
+}
+
+
+try {
+
+    // 1. Tạo danh sách phim
+    $movies = [
+        new Movie(1, "Avengers", 100000, 100),
+        new Movie(2, "Avatar", 120000, 80),
+        new Movie(3, "Batman", 90000, 120)
+    ];
+
+
+    // 2. Đặt vé cho Avengers
+    $avengers = findMovieById($movies, 1);
+
+    if ($avengers != null) {
+        $avengers->bookTicket(30);
+    }
+
+
+    // 3. Đặt vé cho Avatar
+    $avatar = findMovieById($movies, 2);
+
+    if ($avatar != null) {
+        $avatar->bookTicket(20);
+    }
+
+
+    // 4. Hủy một số vé Avengers
+    if ($avengers != null) {
+        $avengers->cancelTicket(5);
+    }
+
+
+    // 5. Hiển thị thông tin tất cả phim
+    echo "\n===== THÔNG TIN CÁC BỘ PHIM =====\n";
+
+    foreach ($movies as $movie) {
+        $movie->displayInfo();
+    }
+
+
+    // 6. Tổng doanh thu
+    echo "\n===== TỔNG DOANH THU =====\n";
+
+    echo number_format(getTotalRevenue($movies))
+        . " VNĐ\n";
+
+
+    // 7. Tìm phim bán được nhiều vé nhất
+    echo "\n===== PHIM BÁN ĐƯỢC NHIỀU VÉ NHẤT =====\n";
+
+    $bestMovie = getBestSellingMovie($movies);
+
+    if ($bestMovie != null) {
+        echo "Tên phim: " . $bestMovie->title . "\n";
+        echo "Số vé đã bán: "
+            . $bestMovie->getSoldSeats()
+            . "\n";
+    } else {
+        echo "Danh sách phim rỗng.\n";
+    }
+
+
+
+    // KIỂM TRA TRƯỜNG HỢP KHÔNG HỢP LỆ
+
+
+    echo "\n===== KIỂM TRA LỖI =====\n";
+
+    // Đặt vé <= 0
+    try {
+        $avengers->bookTicket(0);
+    } catch (Exception $e) {
+        echo "Lỗi: " . $e->getMessage() . "\n";
+    }
+
+
+    // Đặt vượt quá số ghế
+    try {
+        $avengers->bookTicket(1000);
+    } catch (Exception $e) {
+        echo "Lỗi: " . $e->getMessage() . "\n";
+    }
+
+
+    // Hủy <= 0
+    try {
+        $avengers->cancelTicket(0);
+    } catch (Exception $e) {
+        echo "Lỗi: " . $e->getMessage() . "\n";
+    }
+
+
+    // Hủy nhiều hơn số vé đã bán
+    try {
+        $avengers->cancelTicket(1000);
+    } catch (Exception $e) {
+        echo "Lỗi: " . $e->getMessage() . "\n";
+    }
+
+
+    // Tìm phim không tồn tại
+    $movie = findMovieById($movies, 999);
+
+    if ($movie == null) {
+        echo "Không tìm thấy phim có ID = 999.\n";
+    }
+
+
+    // Danh sách rỗng
+    $emptyMovies = [];
+
+    echo "Tổng doanh thu danh sách rỗng: "
+        . number_format(getTotalRevenue($emptyMovies))
+        . " VNĐ\n";
+
+    $bestEmpty = getBestSellingMovie($emptyMovies);
+
+    if ($bestEmpty == null) {
+        echo "Không có phim trong danh sách.\n";
+    }
+
+} catch (Exception $e) {
+
+    echo "Lỗi: " . $e->getMessage() . "\n";
+}
+
+?>
