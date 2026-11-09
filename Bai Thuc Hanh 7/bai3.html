@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bài 3 - Giỏ hàng với props và $emit</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 24px; color: #222; }
+    .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 8px 10px; }
+    th { background: #eceff1; text-align: left; }
+    td.num { text-align: right; }
+    td.giua { text-align: center; white-space: nowrap; }
+    .so-luong { width: 48px; text-align: center; padding: 5px; }
+    button { padding: 5px 10px; cursor: pointer; border: 1px solid #1976d2; background: #1976d2; color: #fff; border-radius: 4px; }
+    button:disabled { background: #b0bec5; border-color: #b0bec5; cursor: not-allowed; }
+    button.xoa { background: #d32f2f; border-color: #d32f2f; }
+    .tong { margin-top: 16px; font-weight: bold; font-size: 16px; display: flex; gap: 32px; }
+    .trong { text-align: center; padding: 24px; color: #777; }
+    .loi { color: #c62828; min-height: 20px; margin: 8px 0; }
+  </style>
+</head>
+<body>
+<div id="app" class="container">
+  <h1>Giỏ hàng</h1>
+  <p class="loi">{{ thongBaoLoi }}</p>
+
+  <div v-if="gioHang.length === 0" class="trong">
+    <p>Giỏ hàng trống</p>
+    <button type="button" @click="khoiPhuc">Khôi phục dữ liệu mẫu</button>
+  </div>
+
+  <template v-else>
+    <table>
+      <thead>
+        <tr><th>Sản phẩm</th><th>Đơn giá</th><th>Số lượng</th><th>Thành tiền</th><th></th></tr>
+      </thead>
+      <tbody>
+        <!-- Trong template DOM, component nằm trong <tbody> phải dùng is="vue:..." -->
+        <tr
+          is="vue:dong-gio-hang"
+          v-for="m in gioHang"
+          :key="m.id"
+          :muc="m"
+          @doi-so-luong="doiSoLuong"
+          @yeu-cau-xoa="xoaMuc"></tr>
+      </tbody>
+    </table>
+    <div class="tong">
+      <span>Tổng số lượng: {{ tongSoLuong }}</span>
+      <span>Tổng tiền: {{ dinhDangTien(tongTien) }}</span>
+    </div>
+  </template>
+</div>
+
+<script>
+const { createApp } = Vue;
+
+// Component <dong-gio-hang> - dùng cho Bài 3
+// Component con CHỈ đọc props và phát sự kiện; không sửa props.
+const DongGioHang = {
+  name: 'DongGioHang',
+
+  props: {
+    muc: {
+      type: Object,
+      required: true,
+      validator: m => ['id', 'ten', 'donGia', 'soLuong'].every(k => k in m)
+    }
+  },
+
+  // Khai báo sự kiện (có kiểm tra tham số)
+  emits: {
+    'doi-so-luong': (id, soLuong) => id !== undefined && typeof soLuong === 'number',
+    'yeu-cau-xoa': id => id !== undefined
+  },
+
+  computed: {
+    thanhTien() { return this.muc.donGia * this.muc.soLuong; }
+  },
+
+  methods: {
+    dinhDangTien(n) { return new Intl.NumberFormat('vi-VN').format(n) + ' đ'; },
+    tang() { this.$emit('doi-so-luong', this.muc.id, this.muc.soLuong + 1); },
+    giam() { this.$emit('doi-so-luong', this.muc.id, this.muc.soLuong - 1); },
+    xoa()  { this.$emit('yeu-cau-xoa', this.muc.id); },
+    nhapTay(e) {
+      const raw = e.target.value.trim();
+      // Gửi giá trị người dùng nhập; cha sẽ kiểm tra hợp lệ
+      this.$emit('doi-so-luong', this.muc.id, raw === '' ? NaN : Number(raw));
+      // Nếu cha từ chối, đưa ô nhập về lại giá trị đúng theo props
+      this.$nextTick(() => { e.target.value = this.muc.soLuong; });
+    }
+  },
+
+  template: `
+    <tr>
+      <td>{{ muc.ten }}</td>
+      <td class="num">{{ dinhDangTien(muc.donGia) }}</td>
+      <td class="giua">
+        <button type="button" @click="giam" :disabled="muc.soLuong <= 1" aria-label="Giảm">−</button>
+        <input type="text" :value="muc.soLuong" @change="nhapTay" class="so-luong" inputmode="numeric">
+        <button type="button" @click="tang" :disabled="muc.soLuong >= 99" aria-label="Tăng">+</button>
+      </td>
+      <td class="num">{{ dinhDangTien(thanhTien) }}</td>
+      <td><button type="button" class="xoa" @click="xoa">Xóa</button></td>
+    </tr>
+  `
+};
+
+
+const DU_LIEU_MAU = () => ([
+  { id: 1, ten: 'Bút',  donGia: 5000,  soLuong: 2 },
+  { id: 2, ten: 'Vở',   donGia: 12000, soLuong: 3 }
+]);
+
+const app = createApp({
+  data() {
+    return { gioHang: DU_LIEU_MAU(), thongBaoLoi: '' };
+  },
+
+  computed: {
+    tongSoLuong() { return this.gioHang.reduce((t, m) => t + m.soLuong, 0); },
+    tongTien()    { return this.gioHang.reduce((t, m) => t + m.donGia * m.soLuong, 0); }
+  },
+
+  methods: {
+    dinhDangTien(n) { return new Intl.NumberFormat('vi-VN').format(n) + ' đ'; },
+
+    // Cha nhận sự kiện, kiểm tra dữ liệu rồi mới cập nhật mảng
+    doiSoLuong(id, soLuongMoi) {
+      this.thongBaoLoi = '';
+      if (!this.gioHang.some(m => m.id === id)) return;
+      if (!Number.isInteger(soLuongMoi) || soLuongMoi < 1 || soLuongMoi > 99) {
+        this.thongBaoLoi = 'Số lượng phải là số nguyên từ 1 đến 99.';
+        return;
+      }
+      // Tạo đối tượng mới thay vì sửa đối tượng đang truyền xuống con
+      this.gioHang = this.gioHang.map(m => m.id === id ? { ...m, soLuong: soLuongMoi } : m);
+    },
+
+    xoaMuc(id) {
+      this.thongBaoLoi = '';
+      this.gioHang = this.gioHang.filter(m => m.id !== id);
+    },
+
+    khoiPhuc() { this.gioHang = DU_LIEU_MAU(); }
+  }
+});
+
+app.component('dong-gio-hang', DongGioHang);
+app.mount('#app');
+</script>
+</body>
+</html>

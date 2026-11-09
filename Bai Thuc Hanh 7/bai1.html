@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bài 1 - Quản lý sản phẩm</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 24px; color: #222; }
+    .container { max-width: 980px; margin: 0 auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    h1 { margin-top: 0; }
+    .status { font-size: 14px; color: #555; margin-bottom: 16px; }
+    .toolbar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+    input, select, button { padding: 8px 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+    button { cursor: pointer; background: #1976d2; color: #fff; border-color: #1976d2; }
+    button.danger { background: #d32f2f; border-color: #d32f2f; }
+    .warn { color: #e65100; font-size: 13px; min-height: 18px; margin: 4px 0 8px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+    th { background: #eceff1; }
+    td.num { text-align: right; }
+    .tag { padding: 2px 8px; border-radius: 10px; font-size: 12px; color: #fff; }
+    .tag.in { background: #2e7d32; }
+    .tag.out { background: #c62828; }
+    .empty { text-align: center; color: #777; padding: 20px; }
+    .stats { display: flex; gap: 24px; margin: 12px 0; font-weight: bold; }
+    fieldset { margin-top: 20px; border: 1px solid #ddd; border-radius: 6px; }
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .error { color: #c62828; font-size: 13px; margin: 8px 0 0; }
+    .ok { color: #2e7d32; font-size: 13px; margin: 8px 0 0; }
+  </style>
+</head>
+<body>
+<div id="app" class="container">
+  <h1>Quản lý sản phẩm</h1>
+  <div class="status">Trạng thái trang: <strong>{{ trangThai }}</strong></div>
+
+  <!-- Tìm kiếm / lọc / sắp xếp -->
+  <div class="toolbar">
+    <input type="text" v-model="tuKhoa" placeholder="Tìm theo tên...">
+    <select v-model="danhMucLoc">
+      <option value="">Tất cả danh mục</option>
+      <option v-for="dm in danhMucList" :key="dm" :value="dm">{{ dm }}</option>
+    </select>
+    <select v-model="kieuSapXep">
+      <option value="">Không sắp xếp</option>
+      <option value="asc">Giá tăng dần</option>
+      <option value="desc">Giá giảm dần</option>
+    </select>
+  </div>
+  <div class="warn">{{ thongBao }}</div>
+
+  <!-- Thống kê -->
+  <div class="stats">
+    <span>Đang hiển thị: {{ soHienThi }} / {{ tongSo }} sản phẩm</span>
+    <span>Tổng giá trị tồn kho: {{ dinhDangTien(tongGiaTriTon) }}</span>
+  </div>
+
+  <!-- Bảng sản phẩm -->
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th><th>Tên</th><th>Danh mục</th><th>Giá</th><th>Tồn kho</th><th>Trạng thái</th><th>Thao tác</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="sp in danhSachHienThi" :key="sp.id">
+        <td>{{ sp.id }}</td>
+        <td>{{ sp.ten }}</td>
+        <td>{{ sp.danhMuc }}</td>
+        <td class="num">{{ dinhDangTien(sp.gia) }}</td>
+        <td class="num">{{ sp.tonKho }}</td>
+        <td>
+          <span v-if="sp.tonKho > 0" class="tag in">Còn hàng</span>
+          <span v-else class="tag out">Hết hàng</span>
+        </td>
+        <td><button class="danger" @click="xoaSanPham(sp)">Xóa</button></td>
+      </tr>
+      <tr v-if="danhSachHienThi.length === 0">
+        <td colspan="7" class="empty">Không có sản phẩm phù hợp.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Thêm sản phẩm -->
+  <fieldset>
+    <legend>Thêm sản phẩm mới</legend>
+    <form class="form-row" @submit.prevent="themSanPham">
+      <input type="text" v-model="formMoi.ten" placeholder="Tên sản phẩm">
+      <input type="text" v-model="formMoi.gia" placeholder="Giá (đ)" inputmode="decimal">
+      <select v-model="formMoi.danhMuc">
+        <option v-for="dm in danhMucList" :key="dm" :value="dm">{{ dm }}</option>
+      </select>
+      <input type="text" v-model="formMoi.tonKho" placeholder="Số lượng tồn" inputmode="numeric">
+      <button type="submit">Thêm</button>
+    </form>
+    <p v-if="loiForm" class="error">{{ loiForm }}</p>
+    <p v-if="thanhCong" class="ok">{{ thanhCong }}</p>
+  </fieldset>
+</div>
+
+<script>
+const { createApp } = Vue;
+
+createApp({
+  data() {
+    return {
+      trangThai: 'Đang tải...',
+      tuKhoa: '',
+      danhMucLoc: '',
+      kieuSapXep: '',
+      thongBao: '',
+      loiForm: '',
+      thanhCong: '',
+      sanPham: [
+        { id: 1, ten: 'Laptop Dell XPS 13', gia: 28000000, danhMuc: 'Điện tử', tonKho: 5 },
+        { id: 2, ten: 'Tai nghe Bluetooth', gia: 850000, danhMuc: 'Điện tử', tonKho: 0 },
+        { id: 3, ten: 'Áo thun cotton', gia: 180000, danhMuc: 'Thời trang', tonKho: 40 },
+        { id: 4, ten: 'Quần jean nam', gia: 450000, danhMuc: 'Thời trang', tonKho: 12 },
+        { id: 5, ten: 'Nồi chiên không dầu', gia: 1900000, danhMuc: 'Gia dụng', tonKho: 7 },
+        { id: 6, ten: 'Bình giữ nhiệt', gia: 320000, danhMuc: 'Gia dụng', tonKho: 0 }
+      ],
+      formMoi: { ten: '', gia: '', danhMuc: 'Điện tử', tonKho: '' }
+    };
+  },
+
+  computed: {
+    // Danh mục lấy từ dữ liệu, giữ cố định ba danh mục ban đầu kể cả khi xóa hết sản phẩm của một danh mục
+    danhMucList() {
+      return ['Điện tử', 'Thời trang', 'Gia dụng'];
+    },
+
+    // Tìm kiếm + lọc + sắp xếp kết hợp; luôn làm việc trên bản sao, không đổi mảng gốc
+    danhSachHienThi() {
+      const tu = this.tuKhoa.trim().toLowerCase();
+      let ds = this.sanPham.filter(sp =>
+        sp.ten.toLowerCase().includes(tu) &&
+        (this.danhMucLoc === '' || sp.danhMuc === this.danhMucLoc)
+      ); // filter đã tạo mảng mới
+      if (this.kieuSapXep === 'asc') ds = [...ds].sort((a, b) => a.gia - b.gia);
+      else if (this.kieuSapXep === 'desc') ds = [...ds].sort((a, b) => b.gia - a.gia);
+      return ds;
+    },
+
+    soHienThi() { return this.danhSachHienThi.length; },
+    tongSo() { return this.sanPham.length; },
+    tongGiaTriTon() {
+      return this.danhSachHienThi.reduce((t, sp) => t + sp.gia * sp.tonKho, 0);
+    }
+  },
+
+  watch: {
+    tuKhoa(moi) {
+      const k = moi.trim();
+      this.thongBao = k.length === 1
+        ? 'Từ khóa chỉ có 1 ký tự, kết quả có thể chưa chính xác. Hãy nhập thêm.'
+        : '';
+    }
+  },
+
+  methods: {
+    dinhDangTien(n) {
+      return new Intl.NumberFormat('vi-VN').format(n) + ' đ';
+    },
+
+    themSanPham() {
+      this.loiForm = '';
+      this.thanhCong = '';
+      const ten = this.formMoi.ten.trim();
+      const giaStr = String(this.formMoi.gia).trim();
+      const tonStr = String(this.formMoi.tonKho).trim();
+      const gia = Number(giaStr);
+
+      if (ten === '') { this.loiForm = 'Tên sản phẩm không được để trống.'; return; }
+      if (giaStr === '' || !Number.isFinite(gia) || gia <= 0) {
+        this.loiForm = 'Giá phải là số lớn hơn 0.'; return;
+      }
+      if (!/^\d+$/.test(tonStr)) {
+        this.loiForm = 'Tồn kho phải là số nguyên không âm.'; return;
+      }
+
+      const idMoi = this.sanPham.reduce((m, sp) => Math.max(m, sp.id), 0) + 1;
+      this.sanPham.push({
+        id: idMoi, ten, gia, danhMuc: this.formMoi.danhMuc, tonKho: parseInt(tonStr, 10)
+      });
+      this.formMoi = { ten: '', gia: '', danhMuc: this.formMoi.danhMuc, tonKho: '' };
+      this.thanhCong = 'Đã thêm sản phẩm "' + ten + '".';
+    },
+
+    xoaSanPham(sp) {
+      if (window.confirm('Bạn có chắc muốn xóa "' + sp.ten + '"?')) {
+        this.sanPham = this.sanPham.filter(x => x.id !== sp.id);
+      }
+    }
+  },
+
+  mounted() {
+    this.trangThai = 'Sẵn sàng';
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

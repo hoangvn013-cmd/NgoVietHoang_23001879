@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bài 2 - Danh mục sản phẩm bằng component</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- Nạp component trước khi mount ứng dụng -->
+  <script src="components/TheSanPham.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 24px; color: #222; }
+    h1 { text-align: center; }
+    .thong-bao { text-align: center; color: #2e7d32; min-height: 20px; }
+    .luoi { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; max-width: 1000px; margin: 0 auto; align-items: start; }
+    .the { background: #fff; border-radius: 8px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+    .the img { width: 100%; height: 140px; object-fit: cover; border-radius: 4px; }
+    .the h3 { margin: 10px 0 4px; }
+    .gia { color: #d32f2f; font-weight: bold; margin: 4px 0; }
+    .nhan { padding: 2px 8px; border-radius: 10px; font-size: 12px; color: #fff; }
+    .nhan.con { background: #2e7d32; }
+    .nhan.het { background: #c62828; }
+    .mo-ta { background: #eceff1; padding: 8px; border-radius: 4px; font-size: 14px; }
+    button { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-right: 6px; }
+    .btn-phu { background: #607d8b; color: #fff; }
+    .btn-mua { background: #1976d2; color: #fff; }
+    .btn-mua:disabled { background: #b0bec5; cursor: not-allowed; }
+    .het-hang img { filter: grayscale(1); }
+  </style>
+</head>
+<body>
+<div id="app">
+  <h1>Danh mục sản phẩm</h1>
+  <p class="thong-bao">{{ thongBao }}</p>
+  <div class="luoi">
+    <the-san-pham
+      v-for="sp in sanPham"
+      :key="sp.id"
+      :ten="sp.ten"
+      :gia="sp.gia"
+      :anh="sp.anh"
+      :mo-ta="sp.moTa"
+      :so-luong-ton="sp.soLuongTon"
+      @mua="khiMua">
+    </the-san-pham>
+  </div>
+</div>
+
+<script>
+const { createApp } = Vue;
+
+// Ảnh minh họa dạng SVG nội tuyến để chạy được khi không có mạng
+function taoAnh(nhan, mau) {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200">' +
+    '<rect width="100%" height="100%" fill="' + mau + '"/>' +
+    '<text x="50%" y="50%" font-family="Arial" font-size="26" fill="#fff" ' +
+    'text-anchor="middle" dominant-baseline="middle">' + nhan + '</text></svg>';
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+}
+
+const app = createApp({
+  data() {
+    return {
+      thongBao: '',
+      sanPham: [
+        { id: 1, ten: 'Laptop Dell XPS 13', gia: 28000000, anh: taoAnh('Laptop', '#1976d2'),
+          moTa: 'Màn hình 13 inch, chip Intel Core i7, RAM 16GB, SSD 512GB.', soLuongTon: 5 },
+        { id: 2, ten: 'Tai nghe Bluetooth', gia: 850000, anh: taoAnh('Tai nghe', '#7b1fa2'),
+          moTa: 'Chống ồn chủ động, pin dùng liên tục 30 giờ.', soLuongTon: 0 },
+        { id: 3, ten: 'Áo thun cotton', gia: 180000, anh: taoAnh('Áo thun', '#388e3c'),
+          moTa: 'Chất liệu cotton 100%, thoáng mát, nhiều màu.', soLuongTon: 40 },
+        { id: 4, ten: 'Nồi chiên không dầu', gia: 1900000, anh: taoAnh('Nồi chiên', '#f57c00'),
+          moTa: 'Dung tích 5 lít, nhiều chế độ nấu cài sẵn.', soLuongTon: 7 },
+        // Không có ảnh và mô tả -> dùng giá trị mặc định của component
+        { id: 5, ten: 'Bình giữ nhiệt', gia: 320000, soLuongTon: 3 }
+      ]
+    };
+  },
+  methods: {
+    khiMua(ten) { this.thongBao = 'Đã thêm "' + ten + '" vào giỏ hàng.'; }
+  }
+});
+
+// Đăng ký component trước khi mount
+app.component('the-san-pham', TheSanPham);
+app.mount('#app');
+</script>
+</body>
+</html>
