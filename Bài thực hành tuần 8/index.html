@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý sản phẩm - PHP API &amp; Vue.js</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 24px; color: #222; }
+    .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { border: 1px solid #ddd; padding: 8px 10px; }
+    th { background: #eceff1; text-align: left; }
+    td.num { text-align: right; }
+    td.giua { text-align: center; white-space: nowrap; }
+    form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+    label { display: flex; flex-direction: column; font-size: 13px; gap: 4px; }
+    input { padding: 6px 8px; border: 1px solid #bbb; border-radius: 4px; }
+    button { padding: 6px 12px; cursor: pointer; border: 1px solid #1976d2; background: #1976d2; color: #fff; border-radius: 4px; }
+    button.sua { background: #f9a825; border-color: #f9a825; color: #222; }
+    button.xoa { background: #d32f2f; border-color: #d32f2f; }
+    button.huy { background: #78909c; border-color: #78909c; }
+    .loi { color: #c62828; margin: 8px 0; min-height: 20px; }
+    .ok { color: #2e7d32; margin: 8px 0; min-height: 20px; }
+    .trong { text-align: center; color: #777; padding: 16px; }
+  </style>
+</head>
+<body>
+<div id="app" class="container">
+  <h1>Quản lý sản phẩm</h1>
+
+  <form @submit.prevent="luu">
+    <label>Tên sản phẩm
+      <input v-model="form.name" type="text" maxlength="100" required>
+    </label>
+    <label>Đơn giá
+      <input v-model.number="form.price" type="number" min="1" step="1" required>
+    </label>
+    <label>Số lượng tồn
+      <input v-model.number="form.stock" type="number" min="0" step="1" required>
+    </label>
+    <button type="submit">Lưu</button>
+    <button v-if="dangSuaId" type="button" class="huy" @click="huy">Hủy</button>
+  </form>
+
+  <p class="loi">{{ thongBaoLoi }}</p>
+  <p class="ok">{{ thongBaoOk }}</p>
+
+  <table>
+    <thead>
+      <tr><th>Tên sản phẩm</th><th>Đơn giá (đồng)</th><th>Số lượng tồn</th><th></th></tr>
+    </thead>
+    <tbody>
+      <tr v-for="sp in danhSach" :key="sp.id">
+        <td>{{ sp.name }}</td>
+        <td class="num">{{ sp.price.toLocaleString('vi-VN') }}</td>
+        <td class="num">{{ sp.stock }}</td>
+        <td class="giua">
+          <button type="button" class="sua" @click="sua(sp)">Sửa</button>
+          <button type="button" class="xoa" @click="xoa(sp)">Xóa</button>
+        </td>
+      </tr>
+      <tr v-if="danhSach.length === 0"><td colspan="4" class="trong">Chưa có sản phẩm</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+const API = 'api/products.php';
+
+Vue.createApp({
+  data() {
+    return {
+      danhSach: [],
+      form: { name: '', price: null, stock: null },
+      dangSuaId: null,
+      thongBaoLoi: '',
+      thongBaoOk: ''
+    };
+  },
+  mounted() {
+    this.taiDanhSach();
+  },
+  methods: {
+    async goi(url, options) {
+      const res = await fetch(url, options);
+      let json;
+      try { json = await res.json(); }
+      catch (e) { throw new Error('Phản hồi từ máy chủ không hợp lệ.'); }
+      if (!json.success) throw new Error(json.message || 'Có lỗi xảy ra.');
+      return json;
+    },
+    async taiDanhSach() {
+      try {
+        this.danhSach = (await this.goi(API)).data;
+      } catch (e) {
+        this.thongBaoLoi = e.message;
+      }
+    },
+    async luu() {
+      this.thongBaoLoi = this.thongBaoOk = '';
+      const dangSua = this.dangSuaId !== null;
+      try {
+        const json = await this.goi(dangSua ? `${API}?id=${this.dangSuaId}` : API, {
+          method: dangSua ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.form)
+        });
+        this.thongBaoOk = json.message;
+        this.huy();
+        await this.taiDanhSach();
+      } catch (e) {
+        this.thongBaoLoi = e.message;
+      }
+    },
+    sua(sp) {
+      this.dangSuaId = sp.id;
+      this.form = { name: sp.name, price: sp.price, stock: sp.stock };
+      this.thongBaoLoi = this.thongBaoOk = '';
+    },
+    huy() {
+      this.dangSuaId = null;
+      this.form = { name: '', price: null, stock: null };
+    },
+    async xoa(sp) {
+      if (!confirm(`Bạn có chắc muốn xóa "${sp.name}"?`)) return;
+      this.thongBaoLoi = this.thongBaoOk = '';
+      try {
+        const json = await this.goi(`${API}?id=${sp.id}`, { method: 'DELETE' });
+        this.thongBaoOk = json.message;
+        if (this.dangSuaId === sp.id) this.huy();
+        await this.taiDanhSach();
+      } catch (e) {
+        this.thongBaoLoi = e.message;
+      }
+    }
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
